@@ -12,7 +12,7 @@ type SendMessage struct {
 	ErrorMessage string
 }
 
-func SendMessageUnlessFull(messageChannel chan<- SendMessage, messageToSend SendMessage) {
+func SendMessageUnlessFull(messageChannel chan<- *SendMessage, messageToSend *SendMessage) {
 	select {
 	case messageChannel <- messageToSend:
 		log.Println("SENDING:", messageToSend.MainMessage)
@@ -21,7 +21,7 @@ func SendMessageUnlessFull(messageChannel chan<- SendMessage, messageToSend Send
 	}
 }
 
-func sendData(conn net.Conn, messageChannel <-chan SendMessage) {
+func sendData(conn net.Conn, messageChannel <-chan *SendMessage) {
 	burstyLimiter := initializeBurstyLimiter()
 
 	for message := range messageChannel {

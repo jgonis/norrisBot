@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func handleMessages(conn *tls.Conn, writeChannel chan<- SendMessage) {
+func handleMessages(conn *tls.Conn, writeChannel chan<- *SendMessage) {
 	connectionReader := textproto.NewReader(bufio.NewReader(conn))
 	for {
 		line, err := connectionReader.ReadLine()
@@ -23,13 +23,13 @@ func handleMessages(conn *tls.Conn, writeChannel chan<- SendMessage) {
 	}
 }
 
-func parseAndDispatch(line string, writeChannel chan<- SendMessage) {
+func parseAndDispatch(line string, writeChannel chan<- *SendMessage) {
 	log.Println("RECEIVED:", line)
 	message := messageParser.ParseMessage(line)
 	handleParsedMessage(message, writeChannel)
 }
 
-func handleParsedMessage(message *messageParser.ParsedMessage, writeChannel chan<- SendMessage) {
+func handleParsedMessage(message *messageParser.ParsedMessage, writeChannel chan<- *SendMessage) {
 	switch message.Command.Command {
 	case "PING":
 		go handlePongMessage(message.Command.Parameters, writeChannel)
@@ -42,19 +42,19 @@ func handleParsedMessage(message *messageParser.ParsedMessage, writeChannel chan
 	}
 }
 
-func handlePongMessage(messageParameter string, writeChannel chan<- SendMessage) {
+func handlePongMessage(messageParameter string, writeChannel chan<- *SendMessage) {
 	pongMessage := "PONG " + messageParameter
-	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: pongMessage,
+	SendMessageUnlessFull(writeChannel, &SendMessage{MainMessage: pongMessage,
 		ErrorMessage: "error replying to PING message with PONG message"})
 }
 
-func handleNorrisMessage(messageChannel string, writeChannel chan<- SendMessage) {
+func handleNorrisMessage(messageChannel string, writeChannel chan<- *SendMessage) {
 	norrisFactChannel := make(chan string)
 	go norrisFact.GetNorrisFact(norrisFactChannel)
 	select {
-	case norrisFact := <-norrisFactChannel:
-		norrisFactMessage := "PRIVMSG " + messageChannel + " :" + norrisFact
-		SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: norrisFactMessage,
+	case norrisFactPayload := <-norrisFactChannel:
+		norrisFactMessage := "PRIVMSG " + messageChannel + " :" + norrisFactPayload
+		SendMessageUnlessFull(writeChannel, &SendMessage{MainMessage: norrisFactMessage,
 			ErrorMessage: "error sending random Chuck Norris fact"})
 	case <-time.After(5 * time.Second):
 		log.Println("ERROR: Timed out trying to receive Norris fact")

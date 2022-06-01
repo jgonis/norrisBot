@@ -12,7 +12,7 @@ import (
 
 func startupBot(userNameFlag *string, channelNameFlag *string, oauthToken *string) {
 	conn := createIrcConnection()
-	writeChannel := make(chan SendMessage, 20)
+	writeChannel := make(chan *SendMessage, 20)
 	go handleMessages(conn, writeChannel)
 	go sendData(conn, writeChannel)
 	authenticateAndJoinChannel(writeChannel, userNameFlag, channelNameFlag, oauthToken)
@@ -36,15 +36,15 @@ func createIrcConnection() *tls.Conn {
 	return conn
 }
 
-func authenticateAndJoinChannel(writeChannel chan<- SendMessage, userName *string, channelName *string, oauthToken *string) {
-	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "CAP REQ :twitch.tv/commands", ErrorMessage: "error send CAP request"})
-	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "PASS oauth:" + *oauthToken, ErrorMessage: "error sending oauth token"})
-	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "NICK " + *userName, ErrorMessage: "error sending user name"})
-	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "JOIN #" + *channelName, ErrorMessage: "error joining channel"})
+func authenticateAndJoinChannel(writeChannel chan<- *SendMessage, userName *string, channelName *string, oauthToken *string) {
+	SendMessageUnlessFull(writeChannel, &SendMessage{MainMessage: "CAP REQ :twitch.tv/commands", ErrorMessage: "error send CAP request"})
+	SendMessageUnlessFull(writeChannel, &SendMessage{MainMessage: "PASS oauth:" + *oauthToken, ErrorMessage: "error sending oauth token"})
+	SendMessageUnlessFull(writeChannel, &SendMessage{MainMessage: "NICK " + *userName, ErrorMessage: "error sending user name"})
+	SendMessageUnlessFull(writeChannel, &SendMessage{MainMessage: "JOIN #" + *channelName, ErrorMessage: "error joining channel"})
 }
 
-func disconnect(conn net.Conn, writeChannel chan SendMessage) {
-	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "QUIT Bye", ErrorMessage: "error sending QUIT message"})
+func disconnect(conn net.Conn, writeChannel chan *SendMessage) {
+	SendMessageUnlessFull(writeChannel, &SendMessage{MainMessage: "QUIT Bye", ErrorMessage: "error sending QUIT message"})
 	close(writeChannel)
 	<-time.After(1 * time.Second)
 	conn.Close()
