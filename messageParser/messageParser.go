@@ -1,7 +1,6 @@
 package messageParser
 
 import (
-	"fmt"
 	"log"
 	"strings"
 )
@@ -24,7 +23,6 @@ type ParsedMessage struct {
 }
 
 func ParseMessage(line string) *ParsedMessage {
-	fmt.Println("Message received was: ", line)
 	var parsedMessage *ParsedMessage
 	if strings.HasPrefix(line, "PING") {
 		parsedMessage = parsePingMessage(line)

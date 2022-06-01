@@ -2,7 +2,6 @@ package norrisFact
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -27,6 +26,5 @@ func GetNorrisFact() string {
 		log.Fatal(err)
 	}
 
-	fmt.Println(data["value"])
 	return data["value"].(string)
 }
