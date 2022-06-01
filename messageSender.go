@@ -22,12 +22,28 @@ func SendMessageUnlessFull(messageChannel chan<- SendMessage, messageToSend Send
 }
 
 func sendData(conn net.Conn, messageChannel <-chan SendMessage) {
-	limiter := time.Tick(1500 * time.Millisecond)
+	burstyLimiter := initializeBurstyLimiter()
+
 	for message := range messageChannel {
-		<-limiter
+		<-burstyLimiter
+		go refillRateLimitQueue(burstyLimiter)
 		_, err := fmt.Fprintf(conn, "%s\r\n", message.MainMessage)
 		if err != nil {
 			log.Println("ERROR:", message.ErrorMessage, err)
 		}
 	}
+}
+
+func initializeBurstyLimiter() chan time.Time {
+	queueSize := 20
+	burstyLimiter := make(chan time.Time, queueSize)
+	for i := 0; i < queueSize; i++ {
+		burstyLimiter <- time.Now()
+	}
+	return burstyLimiter
+}
+
+func refillRateLimitQueue(rateLimitChannel chan<- time.Time) {
+	<-time.Tick(30 * time.Second)
+	rateLimitChannel <- time.Now()
 }

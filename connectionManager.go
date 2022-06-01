@@ -12,7 +12,7 @@ import (
 
 func startupBot(userNameFlag *string, channelNameFlag *string, oauthToken *string) {
 	conn := createIrcConnection()
-	writeChannel := make(chan SendMessage, 10)
+	writeChannel := make(chan SendMessage, 20)
 	go handleMessages(conn, writeChannel)
 	go sendData(conn, writeChannel)
 	authenticateAndJoinChannel(writeChannel, userNameFlag, channelNameFlag, oauthToken)
