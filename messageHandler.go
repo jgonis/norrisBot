@@ -7,38 +7,57 @@ import (
 	"github.com/jgonis/norrisBot/norrisFact"
 	"log"
 	"net/textproto"
+	"time"
 )
 
-func handleMessages(conn *tls.Conn, writeChannel chan SendMessage) {
+func handleMessages(conn *tls.Conn, writeChannel chan<- SendMessage) {
 	connectionReader := textproto.NewReader(bufio.NewReader(conn))
 	for {
 		line, err := connectionReader.ReadLine()
 		if err == nil {
-			log.Println("Received message from server: ", line)
-			message := messageParser.ParseMessage(line)
-			handleParsedMessage(message, writeChannel)
+			go parseAndDispatch(line, writeChannel)
 		} else {
-			log.Println("error: ", err)
+			log.Println("ERROR: ", err)
 			break
 		}
 	}
 }
 
-func handleParsedMessage(message *messageParser.ParsedMessage, writeChannel chan SendMessage) {
+func parseAndDispatch(line string, writeChannel chan<- SendMessage) {
+	log.Println("RECEIVED:", line)
+	message := messageParser.ParseMessage(line)
+	handleParsedMessage(message, writeChannel)
+}
+
+func handleParsedMessage(message *messageParser.ParsedMessage, writeChannel chan<- SendMessage) {
 	switch message.Command.Command {
 	case "PING":
-		SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "PONG" + message.Command.Parameters,
-			ErrorMessage: "error replying to PING message with PONG message"})
-		log.Println("Received PING message, responding with ", "PONG"+message.Command.Parameters)
+		go handlePongMessage(message.Command.Parameters, writeChannel)
 	case "PRIVMSG":
 		if message.Command.BotCommand == "norrisFact" {
-			norrisFactMessage := "PRIVMSG " + message.Command.Channel + " :" + norrisFact.GetNorrisFact()
-			SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: norrisFactMessage,
-				ErrorMessage: "error sending random Chuck Norris fact"})
-			log.Println("received !norrisFact bot message, responding with", norrisFactMessage)
+			go handleNorrisMessage(message.Command.Channel, writeChannel)
 		}
 	default:
-		log.Println("Received a command that the bot doesn't handle,", message.Command.Command, ", doing nothing")
+		log.Println("MESSAGE: Parsed a command that the bot doesn't handle,", message.Command.Command, ", doing nothing")
+	}
+}
+
+func handlePongMessage(messageParameter string, writeChannel chan<- SendMessage) {
+	pongMessage := "PONG " + messageParameter
+	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: pongMessage,
+		ErrorMessage: "error replying to PING message with PONG message"})
+}
+
+func handleNorrisMessage(messageChannel string, writeChannel chan<- SendMessage) {
+	norrisFactChannel := make(chan string)
+	go norrisFact.GetNorrisFact(norrisFactChannel)
+	select {
+	case norrisFact := <-norrisFactChannel:
+		norrisFactMessage := "PRIVMSG " + messageChannel + " :" + norrisFact
+		SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: norrisFactMessage,
+			ErrorMessage: "error sending random Chuck Norris fact"})
+	case <-time.After(5 * time.Second):
+		log.Println("ERROR: Timed out trying to receive Norris fact")
 	}
 
 }

@@ -12,21 +12,13 @@ import (
 
 func startupBot(userNameFlag *string, channelNameFlag *string, oauthToken *string) {
 	conn := createIrcConnection()
-	writeChannel := make(chan SendMessage, 20)
+	writeChannel := make(chan SendMessage, 10)
 	go handleMessages(conn, writeChannel)
 	go sendData(conn, writeChannel)
 	authenticateAndJoinChannel(writeChannel, userNameFlag, channelNameFlag, oauthToken)
 	quitChan := waitForSigTerm()
 	<-quitChan
 	disconnect(conn, writeChannel)
-}
-
-func SendMessageUnlessFull(messageChannel chan SendMessage, messageToSend SendMessage) {
-	select {
-	case messageChannel <- messageToSend:
-	default:
-		log.Println("Message send queue was full, so we're hitting rate limits, dropping message:", messageToSend)
-	}
 }
 
 func createIrcConnection() *tls.Conn {
@@ -44,7 +36,7 @@ func createIrcConnection() *tls.Conn {
 	return conn
 }
 
-func authenticateAndJoinChannel(writeChannel chan SendMessage, userName *string, channelName *string, oauthToken *string) {
+func authenticateAndJoinChannel(writeChannel chan<- SendMessage, userName *string, channelName *string, oauthToken *string) {
 	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "CAP REQ :twitch.tv/commands", ErrorMessage: "error send CAP request"})
 	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "PASS oauth:" + *oauthToken, ErrorMessage: "error sending oauth token"})
 	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "NICK " + *userName, ErrorMessage: "error sending user name"})
@@ -64,7 +56,7 @@ func waitForSigTerm() chan bool {
 	signal.Notify(sigHaltChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigHaltChan
-		log.Println("received halt message, quitting")
+		log.Println("MESSAGE: received halt message, quitting")
 		quitChan <- true
 	}()
 

@@ -9,7 +9,7 @@ import (
 
 const norrisURL = "https://api.chucknorris.io/jokes/random"
 
-func GetNorrisFact() string {
+func GetNorrisFact(responseChannel chan<- string) {
 	response, err := http.Get(norrisURL)
 	if err != nil {
 		log.Fatal(err)
@@ -25,6 +25,6 @@ func GetNorrisFact() string {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	return data["value"].(string)
+	norrisFact := data["value"].(string)
+	responseChannel <- norrisFact
 }
