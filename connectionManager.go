@@ -12,11 +12,13 @@ import (
 
 func startupBot(userNameFlag *string, channelNameFlag *string, oauthToken *string) {
 	conn := createIrcConnection()
-	go handleMessages(conn)
-	authenticateAndJoinChannel(conn, userNameFlag, channelNameFlag, oauthToken)
+	writeChannel := make(chan SendMessage, 20)
+	go handleMessages(conn, writeChannel)
+	go sendData(conn, writeChannel)
+	authenticateAndJoinChannel(writeChannel, userNameFlag, channelNameFlag, oauthToken)
 	quitChan := waitForSigTerm()
 	<-quitChan
-	disconnect(conn)
+	disconnect(conn, writeChannel)
 }
 
 func createIrcConnection() *tls.Conn {
@@ -34,25 +36,17 @@ func createIrcConnection() *tls.Conn {
 	return conn
 }
 
-func authenticateAndJoinChannel(conn *tls.Conn, userName *string, channelName *string, oauthToken *string) {
-	sendData(conn,
-		"CAP REQ :twitch.tv/commands",
-		"error send CAP request")
-	sendData(conn,
-		"PASS oauth:"+*oauthToken,
-		"error sending oauth token")
-	sendData(conn,
-		"NICK "+*userName,
-		"error sending user name")
-	sendData(conn,
-		"JOIN #"+*channelName,
-		"error joining channel")
+func authenticateAndJoinChannel(writeChannel chan SendMessage, userName *string, channelName *string, oauthToken *string) {
+	writeChannel <- SendMessage{MainMessage: "CAP REQ :twitch.tv/commands", ErrorMessage: "error send CAP request"}
+	writeChannel <- SendMessage{MainMessage: "PASS oauth:" + *oauthToken, ErrorMessage: "error sending oauth token"}
+	writeChannel <- SendMessage{MainMessage: "NICK " + *userName, ErrorMessage: "error sending user name"}
+	writeChannel <- SendMessage{MainMessage: "JOIN #" + *channelName, ErrorMessage: "error joining channel"}
 }
 
-func disconnect(conn net.Conn) {
-	sendData(conn,
-		"QUIT Bye",
-		"error sending QUIT message")
+func disconnect(conn net.Conn, writeChannel chan SendMessage) {
+	writeChannel <- SendMessage{MainMessage: "QUIT Bye", ErrorMessage: "error sending QUIT message"}
+	close(writeChannel)
+	<-time.After(1 * time.Second)
 	conn.Close()
 }
 

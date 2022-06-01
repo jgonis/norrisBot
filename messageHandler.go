@@ -9,14 +9,14 @@ import (
 	"net/textproto"
 )
 
-func handleMessages(conn *tls.Conn) {
+func handleMessages(conn *tls.Conn, writeChannel chan SendMessage) {
 	connectionReader := textproto.NewReader(bufio.NewReader(conn))
 	for {
 		line, err := connectionReader.ReadLine()
 		if err == nil {
 			log.Println("Received message from server: ", line)
 			message := messageParser.ParseMessage(line)
-			handleParsedMessage(message, conn)
+			handleParsedMessage(message, writeChannel)
 		} else {
 			log.Println("error: ", err)
 			break
@@ -24,15 +24,16 @@ func handleMessages(conn *tls.Conn) {
 	}
 }
 
-func handleParsedMessage(message *messageParser.ParsedMessage, conn *tls.Conn) {
+func handleParsedMessage(message *messageParser.ParsedMessage, writeChannel chan SendMessage) {
 	switch message.Command.Command {
 	case "PING":
-		sendData(conn, "PONG"+message.Command.Parameters, "error replying to PING message with PONG message")
+		writeChannel <- SendMessage{MainMessage: "PONG" + message.Command.Parameters,
+			ErrorMessage: "error replying to PING message with PONG message"}
 		log.Println("Received PING message, responding with ", "PONG"+message.Command.Parameters)
 	case "PRIVMSG":
 		if message.Command.BotCommand == "norrisFact" {
 			norrisFactMessage := "PRIVMSG " + message.Command.Channel + " :" + norrisFact.GetNorrisFact()
-			sendData(conn, norrisFactMessage, "error sending random Chuck Norris fact")
+			writeChannel <- SendMessage{MainMessage: norrisFactMessage, ErrorMessage: "error sending random Chuck Norris fact"}
 			log.Println("received !norrisFact bot message, responding with", norrisFactMessage)
 		}
 	default:
