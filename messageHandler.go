@@ -27,13 +27,14 @@ func handleMessages(conn *tls.Conn, writeChannel chan SendMessage) {
 func handleParsedMessage(message *messageParser.ParsedMessage, writeChannel chan SendMessage) {
 	switch message.Command.Command {
 	case "PING":
-		writeChannel <- SendMessage{MainMessage: "PONG" + message.Command.Parameters,
-			ErrorMessage: "error replying to PING message with PONG message"}
+		SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "PONG" + message.Command.Parameters,
+			ErrorMessage: "error replying to PING message with PONG message"})
 		log.Println("Received PING message, responding with ", "PONG"+message.Command.Parameters)
 	case "PRIVMSG":
 		if message.Command.BotCommand == "norrisFact" {
 			norrisFactMessage := "PRIVMSG " + message.Command.Channel + " :" + norrisFact.GetNorrisFact()
-			writeChannel <- SendMessage{MainMessage: norrisFactMessage, ErrorMessage: "error sending random Chuck Norris fact"}
+			SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: norrisFactMessage,
+				ErrorMessage: "error sending random Chuck Norris fact"})
 			log.Println("received !norrisFact bot message, responding with", norrisFactMessage)
 		}
 	default:

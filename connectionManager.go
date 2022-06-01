@@ -21,6 +21,14 @@ func startupBot(userNameFlag *string, channelNameFlag *string, oauthToken *strin
 	disconnect(conn, writeChannel)
 }
 
+func SendMessageUnlessFull(messageChannel chan SendMessage, messageToSend SendMessage) {
+	select {
+	case messageChannel <- messageToSend:
+	default:
+		log.Println("Message send queue was full, so we're hitting rate limits, dropping message:", messageToSend)
+	}
+}
+
 func createIrcConnection() *tls.Conn {
 	config := &tls.Config{
 		MinVersion: tls.VersionTLS12,
@@ -37,14 +45,14 @@ func createIrcConnection() *tls.Conn {
 }
 
 func authenticateAndJoinChannel(writeChannel chan SendMessage, userName *string, channelName *string, oauthToken *string) {
-	writeChannel <- SendMessage{MainMessage: "CAP REQ :twitch.tv/commands", ErrorMessage: "error send CAP request"}
-	writeChannel <- SendMessage{MainMessage: "PASS oauth:" + *oauthToken, ErrorMessage: "error sending oauth token"}
-	writeChannel <- SendMessage{MainMessage: "NICK " + *userName, ErrorMessage: "error sending user name"}
-	writeChannel <- SendMessage{MainMessage: "JOIN #" + *channelName, ErrorMessage: "error joining channel"}
+	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "CAP REQ :twitch.tv/commands", ErrorMessage: "error send CAP request"})
+	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "PASS oauth:" + *oauthToken, ErrorMessage: "error sending oauth token"})
+	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "NICK " + *userName, ErrorMessage: "error sending user name"})
+	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "JOIN #" + *channelName, ErrorMessage: "error joining channel"})
 }
 
 func disconnect(conn net.Conn, writeChannel chan SendMessage) {
-	writeChannel <- SendMessage{MainMessage: "QUIT Bye", ErrorMessage: "error sending QUIT message"}
+	SendMessageUnlessFull(writeChannel, SendMessage{MainMessage: "QUIT Bye", ErrorMessage: "error sending QUIT message"})
 	close(writeChannel)
 	<-time.After(1 * time.Second)
 	conn.Close()
