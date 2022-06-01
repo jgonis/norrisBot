@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"github.com/jgonis/norrisBot/messageParser"
+	"github.com/jgonis/norrisBot/norrisFact"
 	"log"
 	"net/textproto"
 )
@@ -30,7 +31,7 @@ func handleParsedMessage(message *messageParser.ParsedMessage, conn *tls.Conn) {
 		log.Println("Received PING message, responding with ", "PONG"+message.Command.Parameters)
 	case "PRIVMSG":
 		if message.Command.BotCommand == "norrisFact" {
-			norrisFactMessage := "PRIVMSG " + message.Command.Channel + " :Random Chuck Norris Fact"
+			norrisFactMessage := "PRIVMSG " + message.Command.Channel + " :" + norrisFact.GetNorrisFact()
 			sendData(conn, norrisFactMessage, "error sending random Chuck Norris fact")
 			log.Println("received !norrisFact bot message, responding with", norrisFactMessage)
 		}
